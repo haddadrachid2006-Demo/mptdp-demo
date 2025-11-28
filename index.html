@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>MPTDP - Official Demo v5 (Delete & Validation)</title>
+    <style>
+      /* FOOTER LÉGAL PRO */
+        .legal-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: #0f172a; /* Bleu nuit très sombre */
+            color: #94a3b8;
+            font-size: 11px;
+            padding: 8px 20px;
+            border-top: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 2000;
+            box-sizing: border-box;
+            font-family: sans-serif;
+        }
+        .legal-footer a { color: var(--accent); text-decoration: none; }
+        .legal-footer a:hover { text-decoration: underline; }
+        :root {
+            --server-bg: #1e1e2e;
+            --client-bg: #f5f7fa;
+            --accent: #3b82f6;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --text-dark: #cbd5e1;
+            --input-bg: #334155;
+        }
+
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; display: flex; overflow: hidden; }
+
+        /* --- LAYOUT --- */
+        .split-container { display: flex; width: 100%; height: 100%; }
+        
+        /* CÔTÉ SERVEUR (Admin) */
+        .server-panel {
+            width: 40%;
+            background: var(--server-bg);
+            color: var(--text-dark);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #444;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.3);
+            overflow-y: auto;
+        }
+
+        /* CÔTÉ CLIENT (Mail) */
+        .client-panel {
+            width: 60%;
+            background: var(--client-bg);
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            position: relative;
+        }
+
+        /* LOGS RÉSEAU */
+        .network-log {
+            position: absolute;
+            bottom: 0;
+            left: 40%;
+            width: 60%;
+            height: 150px;
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            font-size: 12px;
+            overflow-y: auto;
+            border-top: 2px solid #333;
+            z-index: 100;
+        }
+
+        /* UI ELEMENTS */
+        h2 { margin-top: 0; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid var(--accent); padding-bottom: 10px; display: inline-block;}
+        
+        /* Server Forms */
+        .server-form label { display: block; margin-top: 10px; font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; font-weight: bold; }
+        .server-form input, .server-form textarea {
+            width: 100%; background: var(--input-bg); border: 1px solid #475569; color: white; padding: 8px; border-radius: 4px; font-family: monospace; box-sizing: border-box;
+        }
+        .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-add { flex: 2; background: var(--accent); color: white; border: none; padding: 10px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: 0.2s; }
+        .btn-add:hover { background: #2563eb; }
+        .btn-clear { flex: 1; background: #475569; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 4px; }
+
+        .active-rules { margin-top: 25px; border-top: 1px solid #444; padding-top: 10px; }
+        
+        /* LISTE DES RÈGLES (Update V5) */
+        .rule-item { 
+            background: #2d3748; padding: 8px 10px; margin-bottom: 5px; border-radius: 4px; font-size: 0.85rem; 
+            display: flex; justify-content: space-between; align-items: center; 
+            border-left: 3px solid transparent; transition: 0.2s;
+        }
+        .rule-item:hover { background: #4a5568; border-left-color: var(--accent); }
+        .rule-info { flex: 1; cursor: pointer; }
+        .rule-delete { cursor: pointer; padding: 4px 8px; border-radius: 4px; color: #ef4444; font-weight: bold; opacity: 0.7; transition: 0.2s; }
+        .rule-delete:hover { background: rgba(239, 68, 68, 0.2); opacity: 1; }
+
+        /* Client Mail Interface */
+        .mail-window {
+            background: white;
+            width: 100%;
+            max-width: 600px;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .mail-header { background: #f1f5f9; padding: 15px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .mail-body { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        
+        .field-group label { display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 5px; font-weight: 600; }
+        .mail-input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.95rem; box-sizing: border-box; }
+        .mail-input:focus { border-color: var(--accent); outline: none; }
+
+        /* ZONE DYNAMIQUE CONTENEUR */
+        #editor-container {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #fff;
+            min-height: 250px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #mptdp-injection-zone {
+            background: #f0fdf4; 
+            border-bottom: 2px solid var(--success);
+            padding: 15px;
+            display: none; 
+            animation: slideDown 0.4s ease-out;
+        }
+        #mptdp-injection-zone.active { display: block; }
+
+        #user-body-textarea {
+            flex: 1; width: 100%; border: none; padding: 15px; font-family: 'Segoe UI', sans-serif; font-size: 1rem; resize: none; outline: none; background: transparent;
+        }
+        
+        .mptdp-badge {
+            position: absolute; top: 0; right: 0; background: var(--success); color: white; font-size: 10px; padding: 2px 8px; border-bottom-left-radius: 6px; display: none; z-index: 10;
+        }
+
+        /* STYLES DU FORMULAIRE INJECTÉ */
+        .injected-form label { font-weight: bold; color: #064e3b; display: block; margin-top: 10px; font-size: 0.85rem; }
+        .injected-form input, .injected-form select, .injected-form textarea {
+            width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #10b981; border-radius: 4px; background: #fff; box-sizing: border-box; transition: 0.2s;
+        }
+        .injected-form .input-error {
+            border-color: var(--error) !important;
+            background-color: #fef2f2 !important;
+            animation: shake 0.3s;
+        }
+        .injected-info { font-size: 0.8rem; color: #059669; margin-bottom: 10px; font-style: italic;}
+
+        /* MODALE (POPUP) */
+        .modal-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 200;
+        }
+        .modal-box {
+            background: white; padding: 20px; border-radius: 8px; width: 300px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            transform: scale(0.8); transition: transform 0.2s;
+        }
+        .modal-box.show { transform: scale(1); }
+        .modal-icon { font-size: 40px; margin-bottom: 10px; display: block; }
+        .modal-title { font-weight: bold; font-size: 1.1rem; margin-bottom: 5px; display: block;}
+        .modal-msg { font-size: 0.9rem; color: #64748b; margin-bottom: 15px; display: block;}
+        .modal-btn { background: #334155; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; }
+
+        /* FOOTER IETF */
+        .ietf-footer {
+            position: fixed; bottom: 5px; right: 10px; font-size: 10px; color: #64748b; 
+            background: rgba(255,255,255,0.9); padding: 4px 8px; border-radius: 4px; 
+            border: 1px solid #e2e8f0; pointer-events: none; z-index: 1000;
+        }
+
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 100% { transform: translateX(0); } }
+    </style>
+</head>
+<body>
+
+<div class="split-container">
+    <!-- CÔTÉ SERVEUR -->
+    <div class="server-panel">
+        <h2>🖥️ MPTDP Server Panel</h2>
+        <p style="font-size:0.8rem; color:#94a3b8;">Draft IETF: draft-haddad-mptdp</p>
+        
+        <div class="server-form">
+            <label>1. Adresse Email Publique</label>
+            <input type="email" id="srv-email" placeholder="ex: contact@entreprise.com">
+            
+            <label>2. Template JSON (avec "required": true)</label>
+            <textarea id="srv-json" rows="12"></textarea>
+            
+            <div class="btn-group">
+                <button class="btn-clear" onclick="clearForm()">+ Nouveau</button>
+                <button class="btn-add" onclick="saveRule()">💾 Mettre à jour</button>
+            </div>
+        </div>
+
+        <div class="active-rules">
+            <label>Manifeste Actif :</label>
+            <div id="rules-list"></div>
+        </div>
+    </div>
+
+    <!-- CÔTÉ CLIENT -->
+    <div class="client-panel">
+        <div class="mail-window">
+            <div class="mail-header">
+                <span style="font-weight:bold; color:#334155;">Nouveau Message</span>
+                <span style="font-size:12px; color:#94a3b8;">Client Mail (Simulé)</span>
+            </div>
+            <div class="mail-body">
+                <div class="field-group">
+                    <label>À (Destinataire)</label>
+                    <input type="email" class="mail-input" id="client-to" placeholder="Tapez: support@assurance.fr" oninput="checkMPTDP()">
+                </div>
+                
+                <div class="field-group">
+                    <label>Objet</label>
+                    <input type="text" class="mail-input" id="client-subject" placeholder="Sujet...">
+                </div>
+
+                <div class="field-group">
+                    <label>Corps du message</label>
+                    <div id="editor-container">
+                        <div class="mptdp-badge">MPTDP ACTIVATED</div>
+                        <!-- Injection Template -->
+                        <div id="mptdp-injection-zone"></div>
+                        <!-- Saisie Libre -->
+                        <textarea id="user-body-textarea" placeholder="Rédigez votre message ici... (Cette zone reste libre)"></textarea>
+                    </div>
+                </div>
+                
+                <button onclick="tryToSend()" style="background:#3b82f6; color:white; border:none; padding:10px 20px; border-radius:4px; margin-top:10px; cursor:pointer; font-weight:bold;">Envoyer le message</button>
+            </div>
+        </div>
+
+        <!-- MODALE FEEDBACK -->
+        <div class="modal-overlay" id="modal">
+            <div class="modal-box">
+                <span class="modal-icon" id="m-icon">⚠️</span>
+                <span class="modal-title" id="m-title">Erreur</span>
+                <span class="modal-msg" id="m-msg">Message</span>
+                <button class="modal-btn" onclick="closeModal()">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGS -->
+    <div class="network-log" id="logs">
+        <div>> System initialized. IETF Draft Mode.</div>
+    </div>
+</div>
+
+<!-- FOOTER -->
+<div class="ietf-footer">
+    ✅ MPTDP Protocol © 2025 Rachid H. • IETF Official Draft: draft-haddad-mptdp-00
+</div>
+<!-- PIED DE PAGE LÉGAL -->
+<div class="legal-footer">
+    <div>
+        <strong>MPTDP Protocol</strong> © 2025 Rachid HADDAD. Tous droits réservés.
+        <span style="margin: 0 10px; opacity: 0.3;">|</span>
+        Status: <span style="color: #10b981;">Active IETF Internet-Draft</span>
+    </div>
+    <div>
+        Référence officielle : 
+        <a href="https://datatracker.ietf.org/doc/draft-haddad-mptdp/" target="_blank">draft-haddad-mptdp-00</a>
+        <span style="margin: 0 10px; opacity: 0.3;">|</span>
+        <em>Proof of Concept à usage démonstratif</em>
+    </div>
+</div>
+<script>
+    // --- 1. CONFIG INITIALE ---
+    let serverDB = {};
+    const defaultData = {
+        "support@assurance.fr": {
+            "subject": "Sinistre [REF] - Demande d'assistance",
+            "fields": [
+                {"type": "input", "label": "Numéro de Contrat", "placeholder": "A-XXXXXX (Obligatoire)", "required": true},
+                {"type": "select", "label": "Type de problème", "options": ["Accident", "Vol", "Incendie"]},
+                {"type": "date", "label": "Date de l'événement (Obligatoire)", "required": true}
+            ]
+        },
+        "jobs@tech.io": {
+            "subject": "Candidature - [Poste]",
+            "fields": [
+                {"type": "input", "label": "Poste visé", "placeholder": "ex: Dev Fullstack", "required": true},
+                {"type": "input", "label": "Lien Portfolio", "placeholder": "https://...", "required": false},
+                {"type": "textarea", "label": "Motivation", "placeholder": "Pourquoi vous ?", "required": true}
+            ]
+        }
+    };
+
+    function init() {
+        serverDB = JSON.parse(JSON.stringify(defaultData));
+        renderRulesList();
+        loadRule("support@assurance.fr");
+    }
+
+    // --- 2. LOGIQUE SERVEUR (Admin) ---
+    
+    function saveRule() {
+        const email = document.getElementById('srv-email').value.trim().toLowerCase();
+        if(!email) { alert("Adresse email obligatoire"); return; }
+        try {
+            serverDB[email] = JSON.parse(document.getElementById('srv-json').value);
+            renderRulesList();
+            log(`Server: Updated rule for [${email}]`);
+        } catch (e) { alert("JSON Invalide : " + e.message); }
+    }
+
+    function renderRulesList() {
+        const list = document.getElementById('rules-list');
+        list.innerHTML = '';
+        for (let email in serverDB) {
+            const div = document.createElement('div');
+            div.className = 'rule-item';
+            div.innerHTML = `
+                <div class="rule-info" onclick="loadRule('${email}')">
+                    <span>${email}</span> <span style="color:#10b981; font-size:0.7rem">● ACTIVE</span>
+                </div>
+                <div class="rule-delete" onclick="deleteRule('${email}')" title="Supprimer la règle">🗑️</div>
+            `;
+            list.appendChild(div);
+        }
+    }
+
+    function deleteRule(email) {
+        if(confirm("Êtes-vous sûr de vouloir supprimer la règle pour " + email + " ?\nCette action est irréversible.")) {
+            delete serverDB[email];
+            renderRulesList();
+            clearForm();
+            log(`Server: Rule deleted for [${email}]`);
+        }
+    }
+
+    function loadRule(email) {
+        document.getElementById('srv-email').value = email;
+        document.getElementById('srv-json').value = JSON.stringify(serverDB[email], null, 2);
+    }
+    
+    function clearForm() {
+        document.getElementById('srv-email').value = "";
+        document.getElementById('srv-json').value = '{\n  "subject": "",\n  "fields": []\n}';
+    }
+
+    // --- 3. LOGIQUE CLIENT (MPTDP ENGINE) ---
+    let typingTimer;
+
+    function checkMPTDP() {
+        const email = document.getElementById('client-to').value.toLowerCase().trim();
+        clearTimeout(typingTimer);
+        
+        if(email === "") { removeTemplate(); return; }
+
+        typingTimer = setTimeout(() => {
+            if (email.includes('@')) {
+                const domain = email.split('@')[1];
+                log(`Client: GET https://${domain}/.well-known/mptdp?addr=${email.split('@')[0]}`);
+                
+                setTimeout(() => {
+                    if (serverDB[email]) {
+                        log(`Network: 200 OK - Payload Received`);
+                        injectTemplate(serverDB[email]);
+                    } else {
+                        log(`Network: 404 - No template`);
+                        removeTemplate();
+                    }
+                }, 300);
+            }
+        }, 600);
+    }
+
+    function injectTemplate(data) {
+        const subject = document.getElementById('client-subject');
+        const zone = document.getElementById('mptdp-injection-zone');
+        const badge = document.querySelector('.mptdp-badge');
+
+        if (data.subject) {
+            subject.value = data.subject;
+            subject.style.backgroundColor = "#ecfdf5";
+            subject.style.borderColor = "#10b981";
+        }
+
+        // GENERATION DU FORMULAIRE
+        let html = '<div class="injected-info">ℹ️ Veuillez compléter les informations requises par le destinataire :</div><div class="injected-form">';
+        
+        if(data.fields) {
+            data.fields.forEach(field => {
+                const isReq = field.required ? '<span style="color:red">*</span>' : '';
+                const reqAttr = field.required ? 'data-required="true"' : '';
+                
+                if (field.type === 'input') {
+                    html += `<label>${field.label} ${isReq}</label><input type="text" placeholder="${field.placeholder||''}" ${reqAttr}>`;
+                } else if (field.type === 'select') {
+                    html += `<label>${field.label} ${isReq}</label><select ${reqAttr}>`;
+                    field.options.forEach(opt => html += `<option>${opt}</option>`);
+                    html += `</select>`;
+                } else if (field.type === 'date') {
+                    html += `<label>${field.label} ${isReq}</label><input type="date" ${reqAttr}>`;
+                } else if (field.type === 'textarea') {
+                    html += `<label>${field.label} ${isReq}</label><textarea rows="2" placeholder="${field.placeholder||''}" ${reqAttr}></textarea>`;
+                }
+            });
+        }
+        html += '</div>';
+
+        zone.innerHTML = html;
+        zone.classList.add('active');
+        badge.style.display = 'block';
+    }
+
+    function removeTemplate() {
+        document.getElementById('mptdp-injection-zone').classList.remove('active');
+        document.getElementById('mptdp-injection-zone').innerHTML = '';
+        document.querySelector('.mptdp-badge').style.display = 'none';
+        document.getElementById('client-subject').style.backgroundColor = "#fff";
+        document.getElementById('client-subject').style.borderColor = "#cbd5e1";
+    }
+
+    // --- 4. VALIDATION & ENVOI ---
+    function tryToSend() {
+        const recipient = document.getElementById('client-to').value.trim();
+        
+        // 1. Vérification Adresse Vide
+        if (!recipient) {
+            showModal('error', 'Adresse Manquante', 'Veuillez saisir une adresse email destinataire avant d\'envoyer.');
+            return;
+        }
+
+        // 2. Vérification MPTDP (Champs requis)
+        const reqFields = document.querySelectorAll('#mptdp-injection-zone [data-required="true"]');
+        let blocked = false;
+
+        reqFields.forEach(field => {
+            if (field.value.trim() === "") {
+                field.classList.add('input-error'); 
+                field.addEventListener('input', () => field.classList.remove('input-error'));
+                blocked = true;
+            }
+        });
+
+        if (blocked) {
+            showModal('error', 'Envoi Bloqué', 'Le destinataire exige que tous les champs obligatoires (*) soient complétés.');
+            log("Client: Blocked by MPTDP Policy (Missing Fields)");
+        } else {
+            showModal('success', 'Message Envoyé !', 'Le message structuré a été transmis avec succès au serveur.');
+            log("Client: Message Sent (200 OK)");
+        }
+    }
+
+    // --- UTILS ---
+    function showModal(type, title, msg) {
+        const overlay = document.getElementById('modal');
+        const icon = document.getElementById('m-icon');
+        const t = document.getElementById('m-title');
+        const m = document.getElementById('m-msg');
+        
+        overlay.style.display = 'flex';
+        setTimeout(() => document.querySelector('.modal-box').classList.add('show'), 10);
+        
+        if(type === 'error') {
+            icon.innerText = '🛑';
+            t.style.color = '#ef4444';
+        } else {
+            icon.innerText = '✅';
+            t.style.color = '#10b981';
+        }
+        t.innerText = title;
+        m.innerText = msg;
+    }
+
+    function closeModal() {
+        document.querySelector('.modal-box').classList.remove('show');
+        setTimeout(() => document.getElementById('modal').style.display = 'none', 200);
+    }
+
+    function log(msg) {
+        const d = document.getElementById('logs');
+        d.innerHTML += `<div><span style="color:#666">[${new Date().toLocaleTimeString()}]</span> ${msg}</div>`;
+        d.scrollTop = d.scrollHeight;
+    }
+
+    init();
+</script>
+
+</body>
+</html>
