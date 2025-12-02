@@ -34,6 +34,12 @@ This POC simulates a full MPTDP environment (Server & Client side) with the foll
 *   **Discovery Path:** `/.well-known/mptdp`
 *   **Security:** Signature verification (Simulated in POC)
 
+  ## 📘 Documentation
+
+- 🇫🇷 [FAQ Technique (Français)](FAQ-fr.md)
+- 🇬🇧 [Technical FAQ (English)](FAQ-en.md)
+
+
 ## © Copyright & License
 
 **Concept & Specification:** Rachid HADDAD.
